@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gráfico de Juegos</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Gráficos de Juegos</h1>
+    <div id="graficosContainer"></div>
+
+    <script>
+        // Hacer la solicitud AJAX para obtener todos los datos de los juegos
+        fetch('http://localhost/usuarios/juegos.php')
+            .then(response => response.json())
+            .then(data => {
+                // Verifica si hubo algún error
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+
+                data.forEach((juego, index) => {
+                    // Crear un contenedor para cada juego
+                    const container = document.createElement('div');
+                    container.innerHTML = `
+                        <h2>Juego ${juego.id_juego}</h2>
+                        <p><strong>Fecha:</strong> ${juego.fecha}</p>
+                        <canvas id="juegoChart${index}" width="100%" height="30"></canvas>
+                        <div>
+                            <h3>Estadísticas</h3>
+                            <p><strong>Amplitud Máxima:</strong> ${juego.amplitud_maxima}°</p>
+                            <p><strong>Amplitud Media:</strong> ${juego.amplitud_media}°</p>
+                        </div>
+                    `;
+                    document.getElementById('graficosContainer').appendChild(container);
+
+                    // Extrae los tiempos y ángulos para el gráfico
+                    const tiempos = juego.datos.map(d => d.tiempo);
+                    const angulos = juego.datos.map(d => d.angulo);
+
+                    // Configuración del gráfico
+                    const ctx = document.getElementById(`juegoChart${index}`).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: tiempos,
+                            datasets: [{
+                                label: 'Ángulo',
+                                data: angulos,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 2,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tiempo (ms)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Ángulo (grados)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    </script>
+</body>
+</html>
