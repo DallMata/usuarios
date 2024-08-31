@@ -5,9 +5,114 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gráfico de Juegos</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            letter-spacing: 1.5px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: #34495e;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #7f8c8d;
+            margin-top: 20px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        h4 {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #7f8c8d;
+            margin-top: 20px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        #graficosContainer {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .juego-container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .juego-container:hover {
+            transform: translateY(-5px);
+        }
+
+        p {
+            font-size: 1.1rem;
+            color: #555;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+
+        .info-box {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+
+        .info-box p {
+            margin: 10px 0;
+        }
+
+        #amplitudPromedio {
+            font-size: 1.8rem;
+            margin-top: 40px;
+            color: #e74c3c;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        #amplitudPromedio p {
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 </head>
 <body>
-    <h1>Gráficos de Juegos</h1>
+    <h1>Jugadas de Juan Perez</h1>
+    <h4>Medico: Gabriel Varas</h4>
+
+    <!-- Caja de información -->
+    <div id="infoBox" class="info-box">
+        <p><strong>Cantidad de Jugadas:</strong> <span id="cantidadJuegos"></span></p>
+        <p><strong>Amplitud Media Promedio:</strong> <span id="amplitudPromedioTotal"></span>°</p>
+        
+    </div>
+
     <div id="graficosContainer"></div>
 
     <script>
@@ -21,12 +126,18 @@
                     return;
                 }
 
+                let sumaAmplitudMedia = 0;
+                let sumaTiempoJugado = 0;
+
                 data.forEach((juego, index) => {
                     // Crear un contenedor para cada juego
                     const container = document.createElement('div');
+                    container.className = 'juego-container';
                     container.innerHTML = `
                         <h2>Juego ${juego.id_juego}</h2>
                         <p><strong>Fecha:</strong> ${juego.fecha}</p>
+                        <p><strong>Tiempo Jugado:</strong> ${juego.tiempo_jugado} Segundos</p>
+                        <p><strong>Puntaje:</strong> ${juego.puntaje}</p>
                         <canvas id="juegoChart${index}" width="100%" height="30"></canvas>
                         <div>
                             <h3>Estadísticas</h3>
@@ -35,6 +146,10 @@
                         </div>
                     `;
                     document.getElementById('graficosContainer').appendChild(container);
+
+                    // Sumar la amplitud media y el tiempo jugado de cada juego para el cálculo final
+                    sumaAmplitudMedia += juego.amplitud_media;
+                    sumaTiempoJugado = sumaTiempoJugado + juego.tiempo_jugado;
 
                     // Extrae los tiempos y ángulos para el gráfico
                     const tiempos = juego.datos.map(d => d.tiempo);
@@ -49,7 +164,7 @@
                             datasets: [{
                                 label: 'Ángulo',
                                 data: angulos,
-                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderColor: 'rgba(60, 150, 255, 0.8)',
                                 borderWidth: 2,
                                 fill: false
                             }]
@@ -59,19 +174,37 @@
                                 x: {
                                     title: {
                                         display: true,
-                                        text: 'Tiempo (ms)'
+                                        text: 'Tiempo (Mili Segundos)',
+                                        color: '#2c3e50'
                                     }
                                 },
                                 y: {
                                     title: {
                                         display: true,
-                                        text: 'Ángulo (grados)'
+                                        text: 'Ángulo (grados)',
+                                        color: '#2c3e50'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#2c3e50'
                                     }
                                 }
                             }
                         }
                     });
                 });
+
+                // Calcular la amplitud promedio y el tiempo promedio de todas las jugadas
+                const amplitudPromedio = sumaAmplitudMedia / data.length;
+                const tiempoPromedio = sumaTiempoJugado / data.length;
+
+                // Mostrar la cantidad de jugadas, la amplitud promedio total y el tiempo promedio en la caja de información
+                document.getElementById('cantidadJuegos').textContent = data.length;
+                document.getElementById('amplitudPromedioTotal').textContent = amplitudPromedio.toFixed(2);
+               // document.getElementById('tiempoPromedioTotal').textContent = tiempoPromedio.toFixed(2);
             })
             .catch(error => console.error('Error:', error));
     </script>

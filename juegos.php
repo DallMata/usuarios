@@ -67,60 +67,6 @@ function altaJuego()
 {
     global $pdo;
 
-    if (!isset($_GET['id_juego'])) {
-        echo json_encode(['error' => 'ID del juego es obligatorio']);
-        return;
-    }
-
-    $id_juego = $_GET['id_juego'];
-
-    $stmt = $pdo->prepare("SELECT tiempo, angulo FROM juego_datos WHERE id_juego = ?");
-    $stmt->execute([$id_juego]);
-
-    $datos_juego = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$datos_juego) {
-        http_response_code(404); // No encontrado
-        echo json_encode(['error' => 'Datos no encontrados para este juego']);
-        return;
-    }
-
-    // Calcular la amplitud máxima
-    $angles = array_column($datos_juego, 'angulo');
-    $max_amplitude = 0;
-    if (!empty($angles)) {
-        $min_angle = min($angles);
-        $max_angle = max($angles);
-        $max_amplitude = $max_angle - $min_angle;
-    }
-
-    // Calcular la amplitud media
-    $positive_angles = array_filter($angles, function ($angle) {
-        return $angle > 0;
-    });
-
-    $negative_angles = array_filter($angles, function ($angle) {
-        return $angle < 0;
-    });
-
-    $average_positive = count($positive_angles) > 0 ? array_sum($positive_angles) / count($positive_angles) : 0;
-    $average_negative = count($negative_angles) > 0 ? array_sum($negative_angles) / count($negative_angles) : 0;
-    $average_amplitude = abs($average_positive - $average_negative);
-
-    // Enviar respuesta en formato JSON
-    $response = [
-        'datos' => $datos_juego,
-        'amplitud_maxima' => $max_amplitude,
-        'amplitud_media' => $average_amplitude
-    ];
-
-    echo json_encode($response);
-}*/
-
-function obtenerDatosJuego()
-{
-    global $pdo;
-
     $stmt = $pdo->prepare("SELECT id_juego, fecha FROM juegos");
     $stmt->execute();
     $juegos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -161,6 +107,64 @@ function obtenerDatosJuego()
             $response[] = [
                 'id_juego' => $id_juego,
                 'fecha' => $fecha,
+                'datos' => $datos_juego,
+                'amplitud_maxima' => $max_amplitude,
+                'amplitud_media' => $average_amplitude
+            ];
+        }
+    }
+
+    echo json_encode($response);
+}*/
+
+function obtenerDatosJuego()
+{
+    global $pdo;
+
+    $stmt = $pdo->prepare("SELECT id_juego, fecha, tiempo_jugado, puntaje FROM juegos");
+    $stmt->execute();
+    $juegos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $response = [];
+
+    foreach ($juegos as $juego) {
+        $id_juego = $juego['id_juego'];
+        $fecha = $juego['fecha'];
+        $tiempo_jugado = $juego['tiempo_jugado'];
+        $puntaje = $juego['puntaje'];
+
+        $stmt = $pdo->prepare("SELECT tiempo, angulo FROM juego_datos WHERE id_juego = ?");
+        $stmt->execute([$id_juego]);
+        $datos_juego = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($datos_juego) {
+            // Calcular la amplitud máxima
+            $angles = array_column($datos_juego, 'angulo');
+            $max_amplitude = 0;
+            if (!empty($angles)) {
+                $min_angle = min($angles);
+                $max_angle = max($angles);
+                $max_amplitude = $max_angle - $min_angle;
+            }
+
+            // Calcular la amplitud media
+            $positive_angles = array_filter($angles, function ($angle) {
+                return $angle > 0;
+            });
+
+            $negative_angles = array_filter($angles, function ($angle) {
+                return $angle < 0;
+            });
+
+            $average_positive = count($positive_angles) > 0 ? array_sum($positive_angles) / count($positive_angles) : 0;
+            $average_negative = count($negative_angles) > 0 ? array_sum($negative_angles) / count($negative_angles) : 0;
+            $average_amplitude = abs($average_positive - $average_negative);
+
+            $response[] = [
+                'id_juego' => $id_juego,
+                'fecha' => $fecha,
+                'tiempo_jugado' => $tiempo_jugado,
+                'puntaje' => $puntaje,
                 'datos' => $datos_juego,
                 'amplitud_maxima' => $max_amplitude,
                 'amplitud_media' => $average_amplitude
