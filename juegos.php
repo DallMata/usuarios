@@ -2,6 +2,9 @@
 require 'config.php';
 
 header('Content-Type: application/json');
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 try {
     switch ($_SERVER['REQUEST_METHOD']) {
@@ -37,7 +40,7 @@ function altaJuego()
 
     $data = json_decode(file_get_contents('php://input'), true);
 
-    if (!isset($data['tiempo_total']) || !isset($data['Score']) || !isset($data['fecha_inicio']) || !isset($data['datos'])) {
+    if (!isset($data['tiempo_total']) || !isset($data['Score']) || !isset($data['fecha_inicio']) || !isset($data['datos']) || !isset($data['dni_paciente'])) {
         throw new Exception('Todos los campos son obligatorios');
     }
 
@@ -45,18 +48,19 @@ function altaJuego()
     $Score = $data['Score'];
     $fecha_inicio = $data['fecha_inicio'];
     $datos = $data['datos'];
+    $dni_paciente = $data['dni_paciente'];
 
-    // Inserta el juego en la tabla `juegos`
-    $stmt = $pdo->prepare("INSERT INTO juegos (tiempo_jugado, fecha, puntaje) VALUES (?, ?, ?)");
-    $stmt->execute([$tiempo_total, $fecha_inicio, $Score]);
+    // Inserta el juego en la tabla `juegos` con la relación al paciente
+    $stmt = $pdo->prepare("INSERT INTO juegos (tiempo_jugado, fecha, puntaje, dni_paciente) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$tiempo_total, $fecha_inicio, $Score, $dni_paciente]);
 
     // Obtener el ID del juego que se acaba de insertar
     $id_juego = $pdo->lastInsertId();
 
     // Inserta los datos de la jugada en la tabla `juego_datos`
-    $stmt = $pdo->prepare("INSERT INTO juego_datos (id_juego, tiempo, angulo) VALUES (?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO juego_datos (id_juego, tiempo, angulo, tipo) VALUES (?, ?, ?, ?)");
     foreach ($datos as $dato) {
-        $stmt->execute([$id_juego, $dato['Tiempo'], $dato['Angulo']]);
+        $stmt->execute([$id_juego, $dato['Tiempo'], $dato['Angulo'], $dato['Tipo']]);
     }
 
     http_response_code(201); // Creado
@@ -121,8 +125,18 @@ function obtenerDatosJuego()
 {
     global $pdo;
 
-    $stmt = $pdo->prepare("SELECT id_juego, fecha, tiempo_jugado, puntaje FROM juegos");
-    $stmt->execute();
+    // Verifica si se ha pasado el parámetro 'dni' en la URL
+    $dni = isset($_GET['dni']) ? $_GET['dni'] : null;
+
+    // Modifica la consulta SQL para filtrar por dni_paciente si se proporciona
+    if ($dni) {
+        $stmt = $pdo->prepare("SELECT id_juego, fecha, tiempo_jugado, puntaje, dni_paciente FROM juegos WHERE dni_paciente = ?");
+        $stmt->execute([$dni]);
+    } else {
+        $stmt = $pdo->prepare("SELECT id_juego, fecha, tiempo_jugado, puntaje, dni_paciente FROM juegos");
+        $stmt->execute();
+    }
+
     $juegos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $response = [];
@@ -132,6 +146,7 @@ function obtenerDatosJuego()
         $fecha = $juego['fecha'];
         $tiempo_jugado = $juego['tiempo_jugado'];
         $puntaje = $juego['puntaje'];
+        $dni_paciente = $juego['dni_paciente'];
 
         $stmt = $pdo->prepare("SELECT tiempo, angulo FROM juego_datos WHERE id_juego = ?");
         $stmt->execute([$id_juego]);
@@ -165,6 +180,7 @@ function obtenerDatosJuego()
                 'fecha' => $fecha,
                 'tiempo_jugado' => $tiempo_jugado,
                 'puntaje' => $puntaje,
+                'dni_paciente' => $dni_paciente,
                 'datos' => $datos_juego,
                 'amplitud_maxima' => $max_amplitude,
                 'amplitud_media' => $average_amplitude
@@ -174,6 +190,8 @@ function obtenerDatosJuego()
 
     echo json_encode($response);
 }
+
+
 
 
 
