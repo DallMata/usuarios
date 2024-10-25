@@ -97,7 +97,7 @@ function loginUsuario()
     }
 
     // Verificar si la contraseña ingresada coincide con la almacenada (sin hashing para pruebas)
-    if ($password === $usuario['password']) {
+    if (md5($password) === $usuario['password']) {
         // Si la contraseña es correcta, retornar éxito
         echo json_encode([
             'mensaje' => 'Login exitoso',
@@ -155,7 +155,7 @@ function crearUsuario()
     }
 
     // Si no existe ni el email ni el DNI, crear el nuevo usuario
-    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellido, dni, email, password) VALUES (?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellido, dni, email, password) VALUES (?, ?, ?, ?, md5(?))");
     $stmt->execute([$nombre, $apellido, $dni, $email, $password]);
 
     http_response_code(201); // Creado
