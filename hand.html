@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dibujo de mano</title>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dibujo de mano</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="handCanvas" width="500" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById('handCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Coordenadas ajustadas para una mano orientada correctamente
+        const points = [
+            [250, 440], // 0 - base de la palma
+            [300, 370], [330, 330], [350, 290], [360, 250], // pulgar (1-4)
+            [270, 350], [260, 300], [255, 250], [250, 200], // índice (5-8)
+            [230, 350], [225, 290], [220, 230], [215, 170], // medio (9-12)
+            [200, 360], [190, 300], [180, 250], [175, 200], // anular (13-16)
+            [170, 390], [160, 340], [150, 290], [140, 250]  // meñique (17-20)
+        ];
+
+        // Conexiones entre los puntos para formar los dedos y la mano
+        const connections = [
+            [0, 1], [1, 2], [2, 3], [3, 4],   // pulgar
+            [0, 5], [5, 6], [6, 7], [7, 8],   // índice
+            [0, 9], [9, 10], [10, 11], [11, 12], // medio
+            [0, 13], [13, 14], [14, 15], [15, 16], // anular
+            [0, 17], [17, 18], [18, 19], [19, 20],  // meñique
+
+            // Conexiones entre las articulaciones de la palma
+            [1, 5], [5, 9], [9, 13], [13, 17]
+        ];
+
+        // Función para dibujar las conexiones
+        function drawConnections() {
+            ctx.strokeStyle = 'green';
+            ctx.lineWidth = 2;
+            connections.forEach(([start, end]) => {
+                const [x1, y1] = points[start];
+                const [x2, y2] = points[end];
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            });
+        }
+
+        // Función para dibujar los puntos
+        function drawPoints() {
+            ctx.fillStyle = 'red';
+            points.forEach(([x, y], index) => {
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Agregar números a los puntos
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText(index, x + 8, y + 3);
+                ctx.fillStyle = 'red';
+            });
+        }
+
+        // Detectar clics en los puntos
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            points.forEach(([x, y], index) => {
+                const distance = Math.sqrt((x - mouseX)**  2 + (y - mouseY) ** 2);
+                if (distance < 10) { // Si está cerca del punto
+                    alert(`Punto ${index} clickeado`);
+                }
+            });
+        });
+
+        // Llamar funciones para dibujar
+        drawConnections();
+        drawPoints();
+    </script>
+</body>
+</html>

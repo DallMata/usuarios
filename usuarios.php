@@ -96,17 +96,19 @@ function loginUsuario()
         return;
     }
 
-    // Verificar si la contraseña ingresada coincide con la almacenada (sin hashing para pruebas)
-    if (md5($password) === $usuario['password']) {
+    // Verificar si la contraseña ingresada coincide con la almacenada 
+    if (md5($password) === $usuario['password']) { // Cambiado a una comparación simple
         // Si la contraseña es correcta, retornar éxito
         echo json_encode([
             'mensaje' => 'Login exitoso',
             'usuario' => [
-                'id' => $usuario['id'], // Asegúrate de que 'id' sea la columna correcta
+                'id_usuario' => $usuario['id_usuario'], // Asegúrate de que 'id_usuario' sea la columna correcta
                 'nombre' => $usuario['nombre'],
                 'apellido' => $usuario['apellido'],
                 'email' => $usuario['email'],
-                'dni' => $usuario['dni']
+                'dni' => $usuario['dni'],
+                'id_membresia' => $usuario['id_membresia'],
+                'estado' => $usuario['estado']
             ]]);
     } else {
         // Si la contraseña es incorrecta
@@ -114,7 +116,6 @@ function loginUsuario()
         echo json_encode(['error' => 'Contraseña incorrecta']);
     }
 }
-
 
 function crearUsuario()
 {
@@ -165,7 +166,7 @@ function listarUsuarios()
 {
     global $pdo;
 
-    $stmt = $pdo->query("SELECT id, nombre, apellido, email FROM usuarios");
+    $stmt = $pdo->query("SELECT id_usuario, nombre, apellido, dni, email, id_membresia, estado FROM usuarios");
     $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode($usuarios);
