@@ -156,7 +156,7 @@ function crearUsuario()
     }
 
     // Si no existe ni el email ni el DNI, crear el nuevo usuario
-    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellido, dni, email, password) VALUES (?, ?, ?, ?, md5(?))");
+    $stmt = $pdo->prepare("INSERT INTO usuarios (nombre, apellido, dni, email, password, id_membresia, estado) VALUES (?, ?, ?, ?, md5(?), 7, 1)");
     $stmt->execute([$nombre, $apellido, $dni, $email, $password]);
 
     http_response_code(201); // Creado
