@@ -1,7 +1,8 @@
 <?php
 
 $host = 'localhost';
-$db = 'usuarios';
+//$db = 'usuarios';
+$db = 'kineplay_v0';
 $user = 'root';
 $pass = '';
 $charset = 'utf8mb4';

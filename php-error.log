@@ -1,0 +1,24 @@
+[15-Aug-2025 18:07:44 Europe/Berlin] PHP Warning:  Undefined variable $pdo in C:\xampp\htdocs\usuarios\usuarios.php on line 15
+[15-Aug-2025 18:07:44 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\usuarios\usuarios.php:15
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\usuarios\usuarios.php on line 15
+[15-Aug-2025 18:08:12 Europe/Berlin] PHP Warning:  Undefined variable $pdo in C:\xampp\htdocs\usuarios\usuarios.php on line 15
+[15-Aug-2025 18:08:12 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\usuarios\usuarios.php:15
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\usuarios\usuarios.php on line 15
+[15-Aug-2025 18:11:31 Europe/Berlin] [loginUsuario] json_decode error: Syntax error | raw: { email:santyquon@gmail.com, password:password123 }
+[15-Aug-2025 18:11:31 Europe/Berlin] [loginUsuario] Body vacío. raw-length=51
+[15-Aug-2025 18:12:38 Europe/Berlin] [loginUsuario] email=santyquon@gmail.com | pass-len=11
+[24-Aug-2025 01:19:09 Europe/Berlin] [loginUsuario] email=santyquon@gmail.com | pass-len=11
+[28-Aug-2025 02:16:16 Europe/Berlin] [loginUsuario] email=santyquon@gmail.com | pass-len=11
+[30-Aug-2025 02:38:51 Europe/Berlin] [loginUsuario] email=santyquon@gmail.com | pass-len=11
+[30-Aug-2025 02:38:57 Europe/Berlin] [loginUsuario] email=santyquon@gmail.com | pass-len=11
+[30-Aug-2025 15:47:54 Europe/Berlin] [loginUsuario] email=carlos.lopez@example.com | pass-len=11
+[30-Aug-2025 15:50:39 Europe/Berlin] [loginUsuario] email=carlos.lopez@example.com | pass-len=8
+[30-Aug-2025 15:51:05 Europe/Berlin] [loginUsuario] email=carlos.lopez@example.com | pass-len=11
+[30-Aug-2025 15:54:38 Europe/Berlin] [loginUsuario] email=carlos.lopez@example.com | pass-len=11
+[06-Sep-2025 02:56:50 Europe/Berlin] PHP Warning:  Undefined variable $w2 in C:\xampp\htdocs\usuarios\usuarios.php on line 100
+[06-Sep-2025 02:57:16 Europe/Berlin] PHP Warning:  Undefined variable $w2 in C:\xampp\htdocs\usuarios\usuarios.php on line 100
+[06-Sep-2025 02:57:48 Europe/Berlin] PHP Warning:  Undefined variable $w2 in C:\xampp\htdocs\usuarios\usuarios.php on line 100

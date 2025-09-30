@@ -1,150 +1,162 @@
 <?php
-require 'config.php'; // Incluye tu archivo de configuración para la conexión a la base de datos
+require 'config.php';
 
 header('Content-Type: application/json');
-
-// Habilitar CORS
-header("Access-Control-Allow-Origin: *"); // Cambia * a tu dominio si prefieres restringir el origen
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit(); }
 
-// Verificar la conexión a la base de datos
-try {
-    $pdo->query("SELECT 1");
-} catch (PDOException $e) {
-    echo json_encode(['error' => 'Error en la conexión: ' . $e->getMessage()]);
-    exit();
-}
-
+// Debug (desactivar en prod si querés)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Manejar la preflight request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+// Sanity DB
+try { $pdo->query("SELECT 1"); } catch (PDOException $e) {
+  http_response_code(500); echo json_encode(['error'=>'DB: '.$e->getMessage()]); exit();
 }
 
 try {
-    switch ($_SERVER['REQUEST_METHOD']) {
-        case 'GET':
-            if (isset($_GET['id_aplicacion'])) {
-                obtenerAplicacionPorId(); // Llama a la función para obtener la aplicación por ID
-            } elseif (isset($_GET['id_paciente'])) {
-                listarAplicacionesPorPaciente(); // Lista las aplicaciones por paciente
-            } else {
-                listarAplicaciones(); // Opción por defecto para listar todas las aplicaciones
-            }
-            break;
-        case 'POST':
-            crearAplicacion(); // Crear una nueva aplicación
-            break;
-        case 'DELETE':
-            eliminarAplicacion(); // Eliminar una aplicación existente
-            break;
-        default:
-            http_response_code(405); // Método no permitido
-            echo json_encode(['error' => 'Método no permitido']);
-    }
+  switch ($_SERVER['REQUEST_METHOD']) {
+    case 'GET':
+      listarAplicaciones();
+      break;
+    case 'POST':
+      crearAplicacion();
+      break;
+    case 'PUT':
+      actualizarAplicacion();
+      break;
+    case 'DELETE':
+      eliminarAplicacion();
+      break;
+    default:
+      http_response_code(405);
+      echo json_encode(['error'=>'Método no permitido']);
+  }
 } catch (PDOException $e) {
-    http_response_code(500); // Error del servidor
-    echo json_encode(['error' => 'Error en la base de datos: ' . $e->getMessage()]);
+  http_response_code(500); echo json_encode(['error'=>'SQL: '.$e->getMessage()]);
 } catch (Exception $e) {
-    http_response_code(400); // Solicitud incorrecta
-    echo json_encode(['error' => $e->getMessage()]);
+  http_response_code(400); echo json_encode(['error'=>$e->getMessage()]);
 }
 
-
-// Función para listar aplicaciones por paciente
-function listarAplicacionesPorPaciente() {
-    global $pdo;
-
-    if (!isset($_GET['id_paciente'])) {
-        throw new Exception('ID de paciente es obligatorio');
-    }
-
-    $id_paciente = $_GET['id_paciente'];
-
-    // Cambia la consulta según tu estructura de base de datos
-    $stmt = $pdo->prepare("
-        SELECT a.id_aplicacion, a.titulo, a.descripcion 
-        FROM aplicaciones a
-        INNER JOIN asignaciones asg ON a.id_aplicacion = asg.id_aplicacion
-        WHERE asg.id_paciente = ?
-    ");
-    $stmt->execute([$id_paciente]);
-    $aplicaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    echo json_encode($aplicaciones);
-}
-
-
-// Función para obtener una aplicación por ID
-function obtenerAplicacionPorId() {
-    global $pdo;
-
-    if (!isset($_GET['id_aplicacion'])) {
-        throw new Exception('ID de la aplicación es obligatorio');
-    }
-
-    $id_aplicacion = $_GET['id_aplicacion'];
-
-    $stmt = $pdo->prepare("SELECT id_aplicacion, titulo, descripcion FROM aplicaciones WHERE id_aplicacion = ?");
-    $stmt->execute([$id_aplicacion]);
-    $aplicacion = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($aplicacion) {
-        echo json_encode($aplicacion);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'No se encontró la aplicación especificada']);
-    }
-}
-
-// Función para listar todas las aplicaciones
+/* ===== GET =====
+   Filtros:
+   - id_aplicacion
+   - q (busca en titulo/descripcion)
+   - order: titulo|id (asc, default titulo)
+*/
 function listarAplicaciones() {
-    global $pdo;
+  global $pdo;
 
-    $stmt = $pdo->query("SELECT id_aplicacion, titulo, descripcion FROM aplicaciones");
-    $aplicaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $w=[]; $p=[];
+  if (!empty($_GET['id_aplicacion'])) { $w[]='id_aplicacion = ?'; $p[]=(int)$_GET['id_aplicacion']; }
+  if (!empty($_GET['q'])) { $w[]='(titulo LIKE ? OR descripcion LIKE ?)'; $p[]='%'.$_GET['q'].'%'; $p[]='%'.$_GET['q'].'%'; }
 
-    echo json_encode($aplicaciones);
+  $order = ' ORDER BY titulo ASC';
+  if (!empty($_GET['order']) && $_GET['order']==='id') $order = ' ORDER BY id_aplicacion ASC';
+
+  $sql = "SELECT id_aplicacion, titulo, descripcion FROM aplicaciones";
+  if ($w) $sql .= ' WHERE '.implode(' AND ',$w);
+  $sql .= $order;
+
+  $st=$pdo->prepare($sql);
+  $st->execute($p);
+  $rows=$st->fetchAll(PDO::FETCH_ASSOC);
+
+  if (!$rows) { http_response_code(404); echo json_encode(['error'=>'Sin resultados']); return; }
+  echo json_encode($rows);
 }
 
-// Función para crear una nueva aplicación (opcional)
+/* ===== POST =====
+   Body:
+   { "titulo": "...", "descripcion": "..." }
+*/
 function crearAplicacion() {
-    global $pdo;
+  global $pdo;
+  $d = json_decode(file_get_contents('php://input'), true) ?? [];
 
-    $data = json_decode(file_get_contents('php://input'), true);
+  foreach (['titulo','descripcion'] as $k)
+    if (!isset($d[$k]) || trim($d[$k])==='') throw new Exception("Falta $k");
 
-    if (!isset($data['titulo']) || !isset($data['descripcion'])) {
-        throw new Exception('Todos los campos son obligatorios');
-    }
+  $titulo = trim($d['titulo']);
+  $descripcion = trim($d['descripcion']);
 
-    $titulo = $data['titulo'];
-    $descripcion = $data['descripcion'];
+  if (mb_strlen($titulo) > 50) throw new Exception('titulo: máximo 50 caracteres');
+  if (mb_strlen($descripcion) > 100) throw new Exception('descripcion: máximo 100 caracteres');
 
-    $stmt = $pdo->prepare("INSERT INTO aplicaciones (titulo, descripcion) VALUES (?, ?)");
-    $stmt->execute([$titulo, $descripcion]);
+  // (Opcional) unicidad por título
+  $st=$pdo->prepare("SELECT 1 FROM aplicaciones WHERE titulo=?");
+  $st->execute([$titulo]);
+  if ($st->fetchColumn()) { http_response_code(409); echo json_encode(['error'=>'Ya existe una aplicación con ese título']); return; }
 
-    http_response_code(201); // Creado
-    echo json_encode(['mensaje' => 'Aplicación creada correctamente']);
+  $st=$pdo->prepare("INSERT INTO aplicaciones (titulo, descripcion) VALUES (?, ?)");
+  $st->execute([$titulo, $descripcion]);
+
+  http_response_code(201);
+  echo json_encode(['mensaje'=>'Aplicación creada','id_aplicacion'=>$pdo->lastInsertId()]);
 }
 
-// Función para eliminar una aplicación (opcional)
+/* ===== PUT =====
+   Query o Body debe incluir id_aplicacion
+   Body admite actualizar titulo y/o descripcion
+*/
+function actualizarAplicacion() {
+  global $pdo;
+  parse_str($_SERVER['QUERY_STRING'] ?? '', $q);
+  $d = json_decode(file_get_contents('php://input'), true) ?? [];
+
+  $id = isset($q['id_aplicacion']) ? (int)$q['id_aplicacion'] : (int)($d['id_aplicacion'] ?? 0);
+  if (!$id) throw new Exception('id_aplicacion requerido');
+
+  $st=$pdo->prepare("SELECT * FROM aplicaciones WHERE id_aplicacion=?");
+  $st->execute([$id]);
+  $cur=$st->fetch(PDO::FETCH_ASSOC);
+  if (!$cur) throw new Exception('Aplicación no encontrada');
+
+  $titulo = isset($d['titulo']) ? trim($d['titulo']) : $cur['titulo'];
+  $descripcion = isset($d['descripcion']) ? trim($d['descripcion']) : $cur['descripcion'];
+
+  if ($titulo==='') throw new Exception('titulo no puede quedar vacío');
+  if (mb_strlen($titulo) > 50) throw new Exception('titulo: máximo 50 caracteres');
+  if (mb_strlen($descripcion) > 100) throw new Exception('descripcion: máximo 100 caracteres');
+
+  // (Opcional) unicidad de título si cambió
+  if ($titulo !== $cur['titulo']) {
+    $chk=$pdo->prepare("SELECT 1 FROM aplicaciones WHERE titulo=? AND id_aplicacion<>?");
+    $chk->execute([$titulo,$id]);
+    if ($chk->fetchColumn()) { http_response_code(409); echo json_encode(['error'=>'Ya existe otra aplicación con ese título']); return; }
+  }
+
+  $up=$pdo->prepare("UPDATE aplicaciones SET titulo=?, descripcion=? WHERE id_aplicacion=?");
+  $up->execute([$titulo,$descripcion,$id]);
+
+  echo json_encode(['mensaje'=>'Aplicación actualizada']);
+}
+
+/* ===== DELETE =====
+   Query o Body con id_aplicacion
+   Evita borrar si está referenciada en asignaciones (FK)
+*/
 function eliminarAplicacion() {
-    global $pdo;
+  global $pdo;
 
-    $data = json_decode(file_get_contents('php://input'), true);
+  $id = isset($_GET['id_aplicacion']) ? (int)$_GET['id_aplicacion'] : 0;
+  if (!$id) { $d=json_decode(file_get_contents('php://input'), true) ?? []; $id=(int)($d['id_aplicacion'] ?? 0); }
+  if (!$id) throw new Exception('id_aplicacion requerido');
 
-    if (!isset($data['id_aplicacion'])) {
-        throw new Exception('ID de la aplicación es obligatorio');
-    }
+  // ¿Está en uso?
+  $st=$pdo->prepare("SELECT COUNT(*) FROM asignaciones WHERE id_aplicacion=?");
+  $st->execute([$id]);
+  if ((int)$st->fetchColumn() > 0) {
+    http_response_code(409);
+    echo json_encode(['error'=>'No se puede eliminar: la aplicación está vinculada a asignaciones']);
+    return;
+  }
 
-    $id_aplicacion = $data['id_aplicacion'];
-    $stmt = $pdo->prepare("DELETE FROM aplicaciones WHERE id_aplicacion = ?");
-    $stmt->execute([$id_aplicacion]);
+  $del=$pdo->prepare("DELETE FROM aplicaciones WHERE id_aplicacion=?");
+  $del->execute([$id]);
 
-    echo json_encode(['mensaje' => 'Aplicación eliminada correctamente']);
+  echo json_encode(['mensaje'=>'Aplicación eliminada']);
 }
