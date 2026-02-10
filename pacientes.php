@@ -306,6 +306,14 @@ function actualizarPacienteYAsignaciones() {
   $nombre   = isset($d['paciente']['nombre'])   ? trim((string)$d['paciente']['nombre'])   : null;
   $apellido = isset($d['paciente']['apellido']) ? trim((string)$d['paciente']['apellido']) : null;
 
+  // ✅ NUEVO: email opcional
+  $email = array_key_exists('email', $d['paciente']) ? trim((string)$d['paciente']['email']) : null;
+  if ($email === '') $email = null;
+
+  // ✅ NUEVO: password opcional (texto plano; se hashea en SQL con md5)
+  $password = array_key_exists('password', $d['paciente']) ? (string)$d['paciente']['password'] : null;
+  if ($password !== null && trim($password) === '') $password = null;
+
   // Asignaciones actuales
   $st = $pdo->prepare("SELECT id_asignacion, id_usuario_medico FROM asignaciones WHERE id_usuario_paciente=?");
   $st->execute([$idPaciente]);
@@ -350,7 +358,7 @@ function actualizarPacienteYAsignaciones() {
 
     // tiempo mínimo (null ó número)
     $tmin   = array_key_exists('tiempo_minimo_seg', $a) ? $a['tiempo_minimo_seg'] : null;
-    if ($tmin === '' || $tmin === null) $tmin = 0; // usa 0 como “sin mínimo” si tu columna es NOT NULL
+    if ($tmin === '' || $tmin === null) $tmin = 0; // usa 0 como “sin mínimo”
     $tmin = (int)$tmin; if ($tmin < 0) $tmin = 0; if ($tmin > 7200) $tmin = 7200;
 
     $desde  = normInicio($a['fecha_inicio'] ?? '');
@@ -393,11 +401,17 @@ function actualizarPacienteYAsignaciones() {
   try {
     $pdo->beginTransaction();
 
-    // Update datos básicos del paciente
-    if ($nombre !== null || $apellido !== null) {
+    // ✅ Update datos básicos del paciente (+ email + password opcional)
+    if ($nombre !== null || $apellido !== null || $email !== null || $password !== null) {
       $sets = []; $vals = [];
+
       if ($nombre !== null)   { $sets[] = "nombre=?";   $vals[] = $nombre; }
       if ($apellido !== null) { $sets[] = "apellido=?"; $vals[] = $apellido; }
+      if ($email !== null)    { $sets[] = "email=?";    $vals[] = $email; }
+
+      // password: solo si vino (no vacío)
+      if ($password !== null) { $sets[] = "password=md5(?)"; $vals[] = $password; }
+
       if (!empty($sets)) {
         $vals[] = $idPaciente;
         $sqlU = "UPDATE usuarios SET ".implode(',', $sets)." WHERE id_usuario=?";
@@ -435,8 +449,7 @@ function actualizarPacienteYAsignaciones() {
       if (!$idMedicoDefault) {
         throw new Exception('No se pudo determinar id_usuario_medico para nuevas asignaciones. Enviá id_usuario_medico en el payload o crea al menos una asignación previa.');
       }
-      // NOTA: esto depende de que exista un índice UNIQUE (uq_asignacion)
-      // sobre (id_usuario_medico, id_usuario_paciente, id_aplicacion, fecha_inicio)
+
       $sql = "INSERT INTO asignaciones
                 (id_aplicacion, id_usuario_medico, id_usuario_paciente, fecha_inicio, fecha_fin, tiempo_minimo_seg, estado, dificultad)
               VALUES (?,?,?,?,?,?,?,?)
@@ -483,6 +496,7 @@ function actualizarPacienteYAsignaciones() {
     echo json_encode(['error'=>$e->getMessage()]);
   }
 }
+
 
 /* =========================
    DELETE ?dni=...

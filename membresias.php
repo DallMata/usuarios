@@ -55,7 +55,11 @@ function listarMembresias() {
     $idUsuario = (int)$_GET['id_usuario'];
 
     // Busca la membresía asignada a ese usuario
-    $sql = "SELECT m.id_membresia, m.titulo, m.observacion, m.sesiones_maximas
+    $sql = "SELECT m.id_membresia,
+                   m.titulo,
+                   m.observacion,
+                   m.sesiones_maximas,
+                   m.precio
             FROM usuarios u
             INNER JOIN membresias m ON m.id_membresia = u.id_membresia
             WHERE u.id_usuario = ?
@@ -70,17 +74,6 @@ function listarMembresias() {
       return;
     }
 
-    // Opcional: si querés devolver también cuántos pacientes activos tiene ese médico,
-    // descomentá y adaptá el where a tus nombres reales de columnas/tablas:
-    /*
-    $st2 = $pdo->prepare("SELECT COUNT(*) 
-                          FROM usuarios 
-                          WHERE tipo='paciente' AND estado=1 AND id_medico = ?");
-    $st2->execute([$idUsuario]);
-    $pacientesActivos = (int)$st2->fetchColumn();
-    $row['pacientes_activos'] = $pacientesActivos;
-    */
-
     echo json_encode($row);
     return;
   }
@@ -94,7 +87,12 @@ function listarMembresias() {
   $order = ' ORDER BY titulo ASC';
   if (!empty($_GET['order']) && $_GET['order']==='id') $order = ' ORDER BY id_membresia ASC';
 
-  $sql = "SELECT id_membresia, titulo, observacion, sesiones_maximas FROM membresias";
+  $sql = "SELECT id_membresia,
+                 titulo,
+                 observacion,
+                 sesiones_maximas,
+                 precio
+          FROM membresias";
   if ($w) $sql .= ' WHERE '.implode(' AND ',$w);
   $sql .= $order;
 
@@ -112,30 +110,41 @@ function listarMembresias() {
 
 /* ===== POST =====
    Body:
-   { "titulo": "...", "observacion": "...", "sesiones_maximas": 10 }
+   { "titulo": "...", "observacion": "...", "sesiones_maximas": 10, "precio": 97 }
 */
 function crearMembresia() {
   global $pdo;
   $d = json_decode(file_get_contents('php://input'), true) ?? [];
 
-  foreach (['titulo','observacion','sesiones_maximas'] as $k)
+  foreach (['titulo','observacion','sesiones_maximas','precio'] as $k)
     if (!isset($d[$k]) || $d[$k]==='') throw new Exception("Falta $k");
 
   $titulo = trim($d['titulo']);
   $observacion = trim($d['observacion']);
   $ses_max = (int)$d['sesiones_maximas'];
 
+  if (!is_numeric($d['precio'])) throw new Exception('precio debe ser numérico');
+  $precio = (float)$d['precio'];
+
   if ($ses_max <= 0) throw new Exception('sesiones_maximas debe ser > 0');
+  if ($precio < 0) throw new Exception('precio debe ser >= 0');
   if (mb_strlen($titulo) > 50) throw new Exception('titulo: máximo 50 caracteres');
   if (mb_strlen($observacion) > 100) throw new Exception('observacion: máximo 100 caracteres');
 
   // (Opcional) unicidad por título
   $st=$pdo->prepare("SELECT 1 FROM membresias WHERE titulo=?");
   $st->execute([$titulo]);
-  if ($st->fetchColumn()) { http_response_code(409); echo json_encode(['error'=>'Ya existe una membresía con ese título']); return; }
+  if ($st->fetchColumn()) {
+    http_response_code(409);
+    echo json_encode(['error'=>'Ya existe una membresía con ese título']);
+    return;
+  }
 
-  $st=$pdo->prepare("INSERT INTO membresias (titulo, observacion, sesiones_maximas) VALUES (?, ?, ?)");
-  $st->execute([$titulo, $observacion, $ses_max]);
+  $st=$pdo->prepare(
+    "INSERT INTO membresias (titulo, observacion, sesiones_maximas, precio)
+     VALUES (?, ?, ?, ?)"
+  );
+  $st->execute([$titulo, $observacion, $ses_max, $precio]);
 
   http_response_code(201);
   echo json_encode(['mensaje'=>'Membresía creada','id_membresia'=>$pdo->lastInsertId()]);
@@ -143,7 +152,7 @@ function crearMembresia() {
 
 /* ===== PUT =====
    Query o Body debe incluir id_membresia
-   Body admite actualizar titulo / observacion / sesiones_maximas
+   Body admite actualizar titulo / observacion / sesiones_maximas / precio
 */
 function actualizarMembresia() {
   global $pdo;
@@ -158,12 +167,20 @@ function actualizarMembresia() {
   $cur=$st->fetch(PDO::FETCH_ASSOC);
   if (!$cur) throw new Exception('Membresía no encontrada');
 
-  $titulo = isset($d['titulo']) ? trim($d['titulo']) : $cur['titulo'];
+  $titulo      = isset($d['titulo']) ? trim($d['titulo']) : $cur['titulo'];
   $observacion = isset($d['observacion']) ? trim($d['observacion']) : $cur['observacion'];
-  $ses_max = isset($d['sesiones_maximas']) ? (int)$d['sesiones_maximas'] : (int)$cur['sesiones_maximas'];
+  $ses_max     = isset($d['sesiones_maximas']) ? (int)$d['sesiones_maximas'] : (int)$cur['sesiones_maximas'];
+
+  if (isset($d['precio'])) {
+    if (!is_numeric($d['precio'])) throw new Exception('precio debe ser numérico');
+    $precio = (float)$d['precio'];
+  } else {
+    $precio = (float)$cur['precio'];
+  }
 
   if ($titulo==='') throw new Exception('titulo no puede quedar vacío');
   if ($ses_max <= 0) throw new Exception('sesiones_maximas debe ser > 0');
+  if ($precio < 0) throw new Exception('precio debe ser >= 0');
   if (mb_strlen($titulo) > 50) throw new Exception('titulo: máximo 50 caracteres');
   if (mb_strlen($observacion) > 100) throw new Exception('observacion: máximo 100 caracteres');
 
@@ -171,11 +188,19 @@ function actualizarMembresia() {
   if ($titulo !== $cur['titulo']) {
     $chk=$pdo->prepare("SELECT 1 FROM membresias WHERE titulo=? AND id_membresia<>?");
     $chk->execute([$titulo,$id]);
-    if ($chk->fetchColumn()) { http_response_code(409); echo json_encode(['error'=>'Ya existe otra membresía con ese título']); return; }
+    if ($chk->fetchColumn()) {
+      http_response_code(409);
+      echo json_encode(['error'=>'Ya existe otra membresía con ese título']);
+      return;
+    }
   }
 
-  $up=$pdo->prepare("UPDATE membresias SET titulo=?, observacion=?, sesiones_maximas=? WHERE id_membresia=?");
-  $up->execute([$titulo,$observacion,$ses_max,$id]);
+  $up=$pdo->prepare(
+    "UPDATE membresias
+     SET titulo=?, observacion=?, sesiones_maximas=?, precio=?
+     WHERE id_membresia=?"
+  );
+  $up->execute([$titulo,$observacion,$ses_max,$precio,$id]);
 
   echo json_encode(['mensaje'=>'Membresía actualizada']);
 }
@@ -187,7 +212,10 @@ function eliminarMembresia() {
   global $pdo;
 
   $id = isset($_GET['id_membresia']) ? (int)$_GET['id_membresia'] : 0;
-  if (!$id) { $d=json_decode(file_get_contents('php://input'), true) ?? []; $id=(int)($d['id_membresia'] ?? 0); }
+  if (!$id) {
+    $d=json_decode(file_get_contents('php://input'), true) ?? [];
+    $id=(int)($d['id_membresia'] ?? 0);
+  }
   if (!$id) throw new Exception('id_membresia requerido');
 
   // ¿Está en uso por usuarios?
